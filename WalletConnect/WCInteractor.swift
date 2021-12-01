@@ -12,6 +12,7 @@ public typealias SessionRequestClosure = (_ id: Int64, _ peerParam: WCSessionReq
 public typealias DisconnectClosure = (Error?) -> Void
 public typealias CustomRequestClosure = (_ id: Int64, _ request: [String: Any]) -> Void
 public typealias ErrorClosure = (Error) -> Void
+public typealias ConnectionEstablishedClosure = () -> Void
 
 public enum WCInteractorState {
     case connected
@@ -38,6 +39,7 @@ open class WCInteractor {
     public var onDisconnect: DisconnectClosure?
     public var onError: ErrorClosure?
     public var onCustomRequest: CustomRequestClosure?
+    public var onConnectionEstablished: ConnectionEstablishedClosure?
 
     // outgoing promise resolvers
     private var connectResolver: Resolver<Bool>?
@@ -50,6 +52,7 @@ open class WCInteractor {
 
     private var peerId: String?
     private var peerMeta: WCPeerMeta?
+    private var approved: Bool = false
 
     public init(session: WCSession, meta: WCPeerMeta, uuid: UUID, sessionRequestTimeout: TimeInterval = 20) {
         self.session = session
@@ -123,7 +126,12 @@ open class WCInteractor {
             peerMeta: clientMeta
         )
         let response = JSONRPCResponse(id: handshakeId, result: result)
-        return encryptAndSend(data: response.encoded)
+        let res = encryptAndSend(data: response.encoded)
+        res.done {[weak self] _ in
+            self?.approved = true
+            self?.onConnectionEstablished?()
+        }
+        return res
     }
 
     open func rejectSession(_ message: String = "Session Rejected") -> Promise<Void> {
@@ -131,7 +139,11 @@ open class WCInteractor {
             return Promise(error: WCError.sessionInvalid)
         }
         let response = JSONRPCErrorResponse(id: handshakeId, error: JSONRPCError(code: -32000, message: message))
-        return encryptAndSend(data: response.encoded)
+        let r = encryptAndSend(data: response.encoded)
+        r.done {[weak self] _ in
+            self?.approved = false
+        }
+        return r
     }
 
     open func killSession() -> Promise<Void> {
@@ -139,6 +151,7 @@ open class WCInteractor {
         let response = JSONRPCRequest(id: generateId(), method: WCEvent.sessionUpdate.rawValue, params: [result])
         return encryptAndSend(data: response.encoded)
             .map { [weak self] in
+                self?.approved = false
                 self?.disconnect()
             }
     }
@@ -233,6 +246,7 @@ extension WCInteractor {
             peerId = existing.peerId
             peerMeta = existing.peerMeta
             handshakeId = existing.handshakeId
+            approved = true
             return
         }
 
@@ -267,6 +281,9 @@ extension WCInteractor {
         connectResolver = nil
 
         state = .connected
+        if approved {
+            onConnectionEstablished?()
+        }
     }
 
     private func onDisconnect(error: Error?) {
