@@ -10,6 +10,7 @@ import PromiseKit
 
 public typealias SessionRequestClosure = (_ id: Int64, _ peerParam: WCSessionRequestParam) -> Void
 public typealias DisconnectClosure = (Error?) -> Void
+public typealias RemoteDisconnectClosure = () -> Void
 public typealias CustomRequestClosure = (_ id: Int64, _ request: [String: Any]) -> Void
 public typealias ErrorClosure = (Error) -> Void
 public typealias ConnectionEstablishedClosure = () -> Void
@@ -37,6 +38,7 @@ open class WCInteractor {
     // incoming event handlers
     public var onSessionRequest: SessionRequestClosure?
     public var onDisconnect: DisconnectClosure?
+    public var onDisconnectFromRemoteSide: RemoteDisconnectClosure?
     public var onError: ErrorClosure?
     public var onCustomRequest: CustomRequestClosure?
     public var onConnectionEstablished: ConnectionEstablishedClosure?
@@ -218,6 +220,7 @@ extension WCInteractor {
             handshakeId = request.id
             guard let param = request.params.first else { throw WCError.badJSONRPCRequest }
             if param.approved == false {
+                onDisconnectFromRemoteSide?()
                 disconnect()
             }
         default:
