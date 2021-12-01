@@ -202,6 +202,7 @@ extension WCInteractor {
         case .sessionUpdate:
             // topic == clientId
             let request: JSONRPCRequest<[WCSessionUpdateParam]> = try event.decode(decrypted)
+            handshakeId = request.id
             guard let param = request.params.first else { throw WCError.badJSONRPCRequest }
             if param.approved == false {
                 disconnect()
@@ -231,6 +232,7 @@ extension WCInteractor {
         if let existing = WCSessionStore.load(session.topic), existing.session == session {
             peerId = existing.peerId
             peerMeta = existing.peerMeta
+            handshakeId = existing.handshakeId
             return
         }
 

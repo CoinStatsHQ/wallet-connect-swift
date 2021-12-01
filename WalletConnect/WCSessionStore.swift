@@ -12,6 +12,7 @@ public struct WCSessionStoreItem: Codable {
     public let peerMeta: WCPeerMeta
     public let autoSign: Bool
     public let date: Date
+    public let handshakeId: Int64
 }
 
 public struct WCSessionStore {
@@ -23,13 +24,14 @@ public struct WCSessionStore {
         return sessions
     }
 
-    public static func store(_ session: WCSession, peerId: String, peerMeta: WCPeerMeta, autoSign: Bool = false, date: Date = Date()) {
+    public static func store(_ session: WCSession, peerId: String, peerMeta: WCPeerMeta, handshakeId: Int64, autoSign: Bool = false, date: Date = Date()) {
         let item = WCSessionStoreItem(
             session: session,
             peerId: peerId,
             peerMeta: peerMeta,
             autoSign: autoSign,
-            date: date
+            date: date,
+            handshakeId: handshakeId
         )
         store(item)
     }
